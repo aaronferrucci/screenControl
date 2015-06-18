@@ -9,20 +9,16 @@ var printit = function(name, o) {
 
 var updateDate = function(dateLine) {
 	var date = new Date();
-	lastHour = currentHour;
 	currentHour = date.getHours();
 
+	lastDay = currentDay;
+	currentDay = date.getDay();
+
+	// It became Sunday
+    if (currentDay == 0 && lastDay != 0) {
+      timeLeft = defaultFullTime;
+    }	
 	var dateStr = date.toLocaleString();
-/*		
-	var hours = String( date.getHours() );
-	var minutes = String( date.getMinutes() );
-	var seconds = String( date.getSeconds() );
-	if ( 1 == minutes.length )
-		minutes = '0' + minutes;
-	if ( 1 == seconds.length )
-		seconds = '0' + seconds;
-	var time = hours + ':' + minutes + ':' + seconds;
-*/
 	dateLine.first.string = dateStr;
 }
 
@@ -32,38 +28,55 @@ var onSkin = new Skin( { fill:"green" } );
 var offSkin = new Skin( { fill:"red" } );
 var labelStyle = new Style( { font: "bold 40px", color:"white" } );
 var timeDateStyle = new Style( { font: "bold 30px", color:"white" } );
-var onString = "Internet Is ON";
-var offString = "Internet Is OFF";
+var onString = "Screen Time: OK";
+var offString = "Screen Time: Not OK";
 var defaultFullTime = 14 * 60 * 60;
 
 // TODO: put globals into a class.
 var globalState = false;
 var timeLeft = 0;
-var currentHour = 0, lastHour = 0;
+var currentHour = 0;
+var lastDay = 0; currentDay = 0;
 var netStartHour = 7;
 var path = mergeURI(Files.documentsDirectory, application.di + "." + "time.json");
 
 var appBehaviors = Behavior({
   onQuit: function(app) {
   	trace("app onQuit(); saving timeLeft=" + timeLeft + "\n");
-	application.invoke(new Message("/firewall?network_mode=2"));
+	app.invoke(new Message("/firewall?network_mode=2"));
 	Files.writeJSON(path, timeLeft);
 	// TODO: wait until the /firewall message returns.
   },
 
   onLaunch: function(app) {
-    // TODO: Better timezone lookup.
-    var tz = "PDT+07:00";
-  	trace("setting tz: " + tz + "\n");
-  	K4.timezone = tz;
-  },  
+    trace("onLaunch: sharing\n");
+    app.shared = true;
+  },
+  
+  onQuit: function(app) {
+    trace("onLaunch: un-sharing\n");
+    app.shared = false;
+  },
 });
+
+var timeString = function(timeLeft) {
+  var seconds = String(timeLeft % 60);
+  timeLeft = timeLeft / 60;
+  var minutes = String(Math.floor(timeLeft) % 60);
+  timeLeft = timeLeft / 60;
+  var hours = String(Math.floor(timeLeft));
+  if ( 1 == minutes.length )
+    minutes = '0' + minutes;
+  if ( 1 == seconds.length )
+    seconds = '0' + seconds;
+  var timeStr = hours + ':' + minutes + ':' + seconds;
+  return(timeStr);
+};
 
 var theBehaviors = Behavior({
   onCreate: function(column, data) {
 	trace("onCreate()\n");
 	currentHour = 0;
-	lastHour = 0;
 	application.invoke(new Message("/firewall?network_mode=2"));
 	
 	contents = column.first;
@@ -79,14 +92,15 @@ var theBehaviors = Behavior({
 	  	  timeLeft = 0;
 	  	trace("read time: " + timeLeft + " from file " + path + "\n");
 	}
-	timeLine.string = String(timeLeft);
+	timeLine.string = timeString(timeLeft);
 	updateDate(dateLine);
   },
   
   onTimeUpdated: function(column) {
 	contents = column.first;
     timeLine = contents.first;
-	timeLine.string = String(timeLeft);
+	timeLine.string = timeString(timeLeft);
+
 	dateLine = contents.next;
 	updateDate(dateLine);	
 
@@ -195,7 +209,7 @@ Handler.bind(
 		var query = parseQuery( message.query );
 		var network_mode = query.network_mode;
 		var uri = "http://192.168.1.1:8080/network_control.sh" + "?network_mode=" + network_mode;
-		var debug = true;
+		var debug = false;
 		if (debug) {
 			trace("debug: uri: " + uri + "\n");
 		} else {
@@ -209,6 +223,37 @@ Handler.bind(
     }
   }
 );
+
+Handler.bind(
+  "/respond",
+  Behavior({
+	onInvoke: function(handler, message){
+		message.responseText = "You found me!";
+		message.status = 200;	
+	}
+}));
+
+Handler.bind(
+  "/setTimeLeft",
+  Behavior({
+	onInvoke: function(handler, message){
+		var query = parseQuery(message.query);
+		var hours = parseInt(query.hours);
+		var minutes = parseInt(query.minutes);
+		var seconds = parseInt(query.seconds);
+	    
+	    if (hours != undefined && minutes != undefined && seconds != undefined &&
+	        hours > 0 && hours < 24 && minutes > 0 && minutes < 60 && seconds > 0 && seconds < 60) {
+			message.responseText = "Time remaining is now: " + hours + ":" + minutes + ":" + seconds;
+			var newTime = hours * 60 * 60 + minutes * 60 + seconds;
+			timeLeft = newTime;
+			message.status = 200;
+		} else {
+			message.responseText = "Error: You requested setting timeLeft to " + hours + ":" + minutes + ":" + seconds;
+			message.status = 400;
+		}
+	}
+}));
 
 application.add(main);
 application.behavior = appBehaviors;
