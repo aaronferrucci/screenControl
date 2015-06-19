@@ -38,9 +38,9 @@ disabled, and upon app exit.
 The device implements a simple web server interface for resetting the
 time-left value. This http access sets the time to 12:34:56:
 
-http://<ip>:<port>/setTimeLeft?hours=12&minutes=34&seconds=56
+http://&lt;ip&gt;:&lt;port&gt;/setTimeLeft?hours=12&minutes=34&seconds=56
 
-Where <ip> and <port> correspond to the device IP address and the port
+Where &lt;ip&gt; and &lt;port&gt; correspond to the device IP address and the port
 that the application is running on. Note: the ip address and port number 
 are not fixed. A future project will discover the IP address and port 
 dynamically.
@@ -50,10 +50,10 @@ The device executes http transactions to a cgi script running in a
 router running dd-wrt. Two transactions exist:
 
 #### Enable Access
-http://<gateway ip>:<port>/network_control.sh?network_mode=1
+http://&lt;gateway ip&gt;:&lt;port&gt;/network_control.sh?network_mode=1
 
 #### Disable Access
-http://<gateway ip>:<port>/network_control.sh?network_mode=2
+http://&lt;gateway ip&gt;:&lt;port&gt;/network_control.sh?network_mode=2
 
 In a future implementation, the back end could be implemented in a less
 sketchy system component, for example a raspberry pi acting as a gateway.
