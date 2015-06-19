@@ -23,6 +23,12 @@ screen time is disabled and the time remains at 0. At this point, screen time
 remains disabled until Sunday at midnight, when the time is restored
 to a default value (14:00:00).
 
+#### Date/Time
+The current date and time.
+
+#### Status
+The current status, "Screen time: OK" or "Screen time: Not OK".
+
 ### File System
 The time left value is saved in the file system. The value is read from
 the file system on app startup, and written back when screen time is 
@@ -30,23 +36,24 @@ disabled, and upon app exit.
 
 ### Admin Interface
 The device implements a simple web server interface for resetting the
-time-left value. If the IP address of the device is 192.168.1.69, then
-this access sets the time to 12:34:56:
+time-left value. This http access sets the time to 12:34:56:
 
-http://192.168.1.59:10001/setTimeLeft?hours=12&minutes=34&seconds=56
+http://<ip>:<port>/setTimeLeft?hours=12&minutes=34&seconds=56
 
-Note: the port number is not fixed. A future project will discover the
-IP and port of the device dynamically.
+Where <ip> and <port> correspond to the device IP address and the port
+that the application is running on. Note: the ip address and port number 
+are not fixed. A future project will discover the IP address and port 
+dynamically.
 
 ###  Back End/Firewall
 The device executes http transactions to a cgi script running in a 
 router running dd-wrt. Two transactions exist:
 
 #### Enable Access
-http://192.168.1.1:8080/network_control.sh?network_mode=1
+http://<gateway ip>:<port>/network_control.sh?network_mode=1
 
 #### Disable Access
-http://192.168.1.1:8080/network_control.sh?network_mode=2
+http://<gateway ip>:<port>/network_control.sh?network_mode=2
 
 In a future implementation, the back end could be implemented in a less
 sketchy system component, for example a raspberry pi acting as a gateway.
