@@ -42,8 +42,11 @@ var path = mergeURI(Files.documentsDirectory, application.di + "." + "time.json"
 
 var appBehaviors = Behavior({
   onQuit: function(app) {
-  	trace("app onQuit(); saving timeLeft=" + timeLeft + "\n");
 	app.invoke(new Message("/firewall?network_mode=2"));
+    trace("onQuit: un-sharing\n");
+    app.shared = false;
+
+  	trace("app onQuit(); saving timeLeft=" + timeLeft + "\n");
 	Files.writeJSON(path, timeLeft);
 	// TODO: wait until the /firewall message returns.
   },
@@ -51,11 +54,6 @@ var appBehaviors = Behavior({
   onLaunch: function(app) {
     trace("onLaunch: sharing\n");
     app.shared = true;
-  },
-  
-  onQuit: function(app) {
-    trace("onLaunch: un-sharing\n");
-    app.shared = false;
   },
 });
 
@@ -82,11 +80,14 @@ var theBehaviors = Behavior({
 	contents = column.first;
     timeLine = contents.first;
 	dateLine = contents.next;
+	
 	if (!Files.exists(path)) {
 		trace("no file '" + path + "'; creating it\n");
 	  	timeLeft = defaultFullTime;
 		Files.writeJSON(path, timeLeft);
 	} else {
+	    // TODO: catch readJSON exceptions (can happen if the filesystem is corrupted).
+	    // Recreate the file if exception occurs.
 	  	timeLeft = Files.readJSON(path);
 	  	if (timeLeft < 0)
 	  	  timeLeft = 0;
@@ -243,7 +244,7 @@ Handler.bind(
 		var seconds = parseInt(query.seconds);
 	    
 	    if (hours != undefined && minutes != undefined && seconds != undefined &&
-	        hours > 0 && hours < 24 && minutes > 0 && minutes < 60 && seconds > 0 && seconds < 60) {
+	        hours >= 0 && hours < 24 && minutes >= 0 && minutes < 60 && seconds >= 0 && seconds < 60) {
 			message.responseText = "Time remaining is now: " + hours + ":" + minutes + ":" + seconds;
 			var newTime = hours * 60 * 60 + minutes * 60 + seconds;
 			timeLeft = newTime;
