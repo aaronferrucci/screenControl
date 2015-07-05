@@ -57,12 +57,21 @@ var appBehaviors = Behavior({
   },
 });
 
+var timeSplit = function(timeLeft) {
+  var seconds = timeLeft % 60;
+  timeLeft = timeLeft / 60;
+  var minutes = Math.floor(timeLeft) % 60;
+  timeLeft = timeLeft / 60;
+  var hours = Math.floor(timeLeft);
+  
+  return {hours: hours, minutes: minutes, seconds: seconds};
+};
+
 var timeString = function(timeLeft) {
-  var seconds = String(timeLeft % 60);
-  timeLeft = timeLeft / 60;
-  var minutes = String(Math.floor(timeLeft) % 60);
-  timeLeft = timeLeft / 60;
-  var hours = String(Math.floor(timeLeft));
+  var theTime = timeSplit(timeLeft);
+  var seconds = String(theTime.seconds);
+  var minutes = String(theTime.minutes);
+  var hours = String(theTime.hours);
   if (1 == minutes.length)
     minutes = '0' + minutes;
   if (1 == seconds.length)
@@ -234,25 +243,68 @@ Handler.bind(
     }
 }));
 
+var parseTimeValue = function(queryValue, label, currentVal, lowLimit, highLimit) {
+  var msg = "";
+
+  if (queryValue == undefined) {
+    msg += "Warning: ignoring undefined value for " + label + "\n";
+    return {value: currentVal, msg: msg};
+  }
+  
+  var isPlus = false, isMinus = false;
+  if (queryValue.substring(0, 1) == '+') {
+    isPlus = true;
+  } else if (queryValue.substring(0, 1) == '-') {
+    isMinus = true;
+  }
+  
+  if (isPlus || isMinus)
+    queryValue = queryValue.substring(1);
+  
+  var value = parseInt(queryValue);
+  if (isNaN(value) || value < lowLimit || value >= highLimit) {
+    value = currentVal;
+    msg += "Warning: using default value for " + label + ": " + value + "\n";
+  } else {
+    if (isPlus)
+      value = currentVal + value;
+    else if (isMinus)
+      value = currentVal - value;
+  }
+  return {value: value, msg: msg};
+}
+
 Handler.bind(
   "/setTimeLeft",
   Behavior({
   onInvoke: function(handler, message){
     var query = parseQuery(message.query);
-    var hours = parseInt(query.hours);
-    var minutes = parseInt(query.minutes);
-    var seconds = parseInt(query.seconds);
+    var hours;
+    var minutes;
+    var seconds;
+    
+    var errString = "";
+    var qualified;
+    var theTime = timeSplit(timeLeft);
+
+    qualified = parseTimeValue(query.hours, "hours", theTime.hours, 0, 100);
+    hours = qualified.value;
+    errString += qualified.msg;
+    
+    qualified = parseTimeValue(query.minutes, "minutes", theTime.minutes, 0, 60);
+    minutes = qualified.value;
+    errString += qualified.msg;
+
+    qualified = parseTimeValue(query.seconds, "seconds", theTime.seconds, 0, 60);
+    seconds = qualified.value;
+    errString += qualified.msg;
       
-    if (hours != undefined && minutes != undefined && seconds != undefined &&
-      hours >= 0 && hours < 24 && minutes >= 0 && minutes < 60 && seconds >= 0 && seconds < 60) {
-      message.responseText = "Time remaining is now: " + hours + ":" + minutes + ":" + seconds;
-      var newTime = hours * 60 * 60 + minutes * 60 + seconds;
-      timeLeft = newTime;
-      message.status = 200;
-    } else {
-      message.responseText = "Error: You requested setting timeLeft to " + hours + ":" + minutes + ":" + seconds;
-      message.status = 400;
-    }
+    var newTime = hours * 60 * 60 + minutes * 60 + seconds;
+    if (newTime < 0) 
+      newTime = 0;
+    timeLeft = newTime;
+    message.responseText = errString + "Time remaining is now: " + timeString(timeLeft);
+    message.status = 200;
   }
 }));
 
