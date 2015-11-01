@@ -19,6 +19,8 @@ var updateDate = function(dateLine) {
     timeLeft = defaultFullTime;
   }  
   var dateStr = date.toLocaleString();
+  // If you're wondering how the time gets set to daylight savings time or not...
+  // it's done in the settings menu on the Kinoma. Awkward.
   dateLine.first.string = dateStr;
 }
 
@@ -128,6 +130,7 @@ var theBehaviors = Behavior({
   },
   
   onTouchBegan: function(column, id, x, y, ticks) {
+    // Todo: allow turning internet off, even if it's past midnight but before 7.
     if (timeLeft > 0 && currentHour >= netStartHour) {
       globalState = !globalState;
     }
@@ -229,6 +232,9 @@ Handler.bind(
     onComplete: function(handler, message) {
       // TODO: if the message status is not success, don't change globalState?
       // (but I've already done that in onTouchBegan.)
+      // TODO: if there's no network connection, the counter may be counting
+      // down without having provided access. Can I detect that via message status
+      // and 1) stop counting down, 2) print an error?
       trace("message.status: " + message.status + "\n");
     }
   }
