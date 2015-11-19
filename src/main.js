@@ -14,8 +14,12 @@ var updateDate = function(dateLine) {
   lastDay = currentDay;
   currentDay = date.getDay();
 
-  // It became Sunday
-  if (currentDay == 0 && lastDay != 0) {
+  // "The getDay() method returns the day of the week (from 0 to 6) for the specified date."
+  // "Note: Sunday is 0, Monday is 1, and so on."
+  // Detect the transition from the end of one week to the beginning
+  // of the next, and update timeLeft.
+  var refillDay = 1; // Monday
+  if (currentDay == refillDay && lastDay != refillDay) {
     timeLeft = defaultFullTime;
   }  
   var dateStr = date.toLocaleString();
