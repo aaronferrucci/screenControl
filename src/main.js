@@ -239,7 +239,8 @@ Handler.bind(
       // TODO: if there's no network connection, the counter may be counting
       // down without having provided access. Can I detect that via message status
       // and 1) stop counting down, 2) print an error?
-      trace("message.status: " + message.status + "\n");
+      
+      // trace("message.status: " + message.status + "\n");
     }
   }
 );
