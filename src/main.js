@@ -36,13 +36,15 @@ var labelStyle = new Style( { font: "bold 40px", color:"white" } );
 var timeDateStyle = new Style( { font: "bold 30px", color:"white" } );
 var onString = "Screen Time: OK";
 var offString = "Screen Time: Not OK";
+var tooEarlyString = offString + " (too early)";
 var defaultFullTime = 14 * 60 * 60;
 
 // TODO: put globals into a class.
 var globalState = false;
 var timeLeft = 0;
 var currentHour = 0;
-var lastDay = 0; currentDay = 0;
+var lastDay = 0; 
+var currentDay = 0;
 var netStartHour = 7;
 var path = mergeURI(Files.documentsDirectory, application.di + "." + "time.json");
 
@@ -92,9 +94,9 @@ var theBehaviors = Behavior({
     currentHour = 0;
     application.invoke(new Message("/firewall?network_mode=2"));
     
-    contents = column.first;
-    timeLine = contents.first;
-    dateLine = contents.next;
+    var contents = column.first;
+    var timeLine = contents.first;
+    var dateLine = contents.next;
     
     if (!Files.exists(path)) {
       trace("no file '" + path + "'; creating it\n");
@@ -113,11 +115,11 @@ var theBehaviors = Behavior({
   },
 
   onTimeUpdated: function(column) {
-    contents = column.first;
-    timeLine = contents.first;
+    var contents = column.first;
+    var timeLine = contents.first;
     timeLine.string = timeString(timeLeft);
 
-    dateLine = contents.next;
+    var dateLine = contents.next;
     updateDate(dateLine);  
 
     if (globalState) {
@@ -139,21 +141,19 @@ var theBehaviors = Behavior({
       globalState = !globalState;
     }
       
-    contents = column.first;
-    statusLine = contents.next.next;
-    
     column.skin = touchSkin;
   },
   
   onTouchEnded: function (column, id, x, y, ticks) {
-    contents = column.first;
-    statusLine = contents.next.next;
+    var contents = column.first;
+    var statusLine = contents.next.next;
     if (globalState) {
       statusLine.first.string = onString;
       column.skin = onSkin;
       application.invoke(new Message("/firewall?network_mode=1"));
     } else {
       statusLine.first.string = offString;
+      
       Files.writeJSON(path, timeLeft);
       application.invoke(new Message("/firewall?network_mode=2"));
       column.skin = offSkin;
