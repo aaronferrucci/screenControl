@@ -7,7 +7,30 @@ var printit = function(name, o) {
   trace(output);
 };
 
-var updateDate = function(dateLine) {
+var localTimeString = function(date) {
+  var timeStr = date.toLocaleTimeString();
+  var hours = date.getHours();
+  var minutes = String(date.getMinutes());
+  var seconds = String(date.getSeconds());
+  var ampm = "AM";
+  if (hours == 0) {
+    hours = 12;
+  }
+  else if (hours > 12) {
+    hours -= 12;
+    ampm = "PM";
+  }
+  
+  if (1 == minutes.length)
+    minutes = '0' + minutes;
+  if (1 == seconds.length)
+    seconds = '0' + seconds;
+  
+  var localtime = hours + ":" + minutes + ":" + seconds + " " + ampm
+  return localtime;
+}
+
+var updateTimeDate = function(timeLine, dateLine) {
   var date = new Date();
   currentHour = date.getHours();
 
@@ -22,10 +45,15 @@ var updateDate = function(dateLine) {
   if (currentDay == refillDay && lastDay != refillDay) {
     timeLeft = defaultFullTime;
   }  
-  var dateStr = date.toLocaleString();
+
   // If you're wondering how the time gets set to daylight savings time or not...
   // it's done in the settings menu on the Kinoma. Awkward.
+  var timeStr = localTimeString(date);
+  timeLine.first.string = timeStr;
+  
+  var dateStr = date.toLocaleDateString();
   dateLine.first.string = dateStr;
+  
 }
 
 // TODO: a better way to handle constants?
@@ -95,7 +123,8 @@ var theBehaviors = Behavior({
     application.invoke(new Message("/firewall?network_mode=2"));
     
     var contents = column.first;
-    var timeLine = contents.first;
+    var timeLeftLine = contents.first;
+    var timeLine = contents.next;
     var dateLine = contents.next;
     
     if (!Files.exists(path)) {
@@ -110,17 +139,18 @@ var theBehaviors = Behavior({
         timeLeft = 0;
       trace("read time: " + timeLeft + " from file " + path + "\n");
     }
-    timeLine.string = timeString(timeLeft);
-    updateDate(dateLine);
+    timeLeftLine.string = timeString(timeLeft);
+    updateTimeDate(timeLine, dateLine);
   },
 
   onTimeUpdated: function(column) {
     var contents = column.first;
-    var timeLine = contents.first;
-    timeLine.string = timeString(timeLeft);
+    var timeLeftLine = contents.first;
+    timeLeftLine.string = timeString(timeLeft);
 
-    var dateLine = contents.next;
-    updateDate(dateLine);  
+    var timeLine = contents.next;
+    var dateLine = contents.next.next;
+    updateTimeDate(timeLine, dateLine);  
 
     if (globalState) {
       if (timeLeft == 1) {
@@ -146,7 +176,7 @@ var theBehaviors = Behavior({
   
   onTouchEnded: function (column, id, x, y, ticks) {
     var contents = column.first;
-    var statusLine = contents.next.next;
+    var statusLine = contents.next.next.next;
     if (globalState) {
       statusLine.first.string = onString;
       column.skin = onSkin;
@@ -182,7 +212,16 @@ var main = new Column({
       top:0,
       bottom:0,
       contents: [
-      new Label({left:0, right:0, top:0, bottom:0, height: 0, string: "Current Time/Date", style: timeDateStyle}),
+      new Label({left:0, right:0, top:0, bottom:0, height: 0, string: "Current Time", style: timeDateStyle}),
+      ],
+    }),
+    new Line({
+      left:0,
+      right:0,
+      top:0,
+      bottom:0,
+      contents: [
+      new Label({left:0, right:0, top:0, bottom:0, height: 0, string: "Current Date", style: timeDateStyle}),
       ],
     }),
     new Line({
