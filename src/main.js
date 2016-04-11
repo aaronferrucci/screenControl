@@ -8,7 +8,6 @@ var printit = function(name, o) {
 };
 
 var localTimeString = function(date) {
-  var timeStr = date.toLocaleTimeString();
   var hours = date.getHours();
   var minutes = String(date.getMinutes());
   var seconds = String(date.getSeconds());
@@ -66,6 +65,9 @@ var onString = "Screen Time: OK";
 var offString = "Screen Time: Not OK";
 var tooEarlyString = offString + " (too early)";
 var defaultFullTime = 14 * 60 * 60;
+var backlightInterval = 10;
+var backlightBright = 0.6;
+var backlightDim = 0.08;
 
 // TODO: put globals into a class.
 var globalState = false;
@@ -75,6 +77,8 @@ var lastDay = 0;
 var currentDay = 0;
 var netStartHour = 7;
 var path = mergeURI(Files.documentsDirectory, application.di + "." + "time.json");
+
+var backlightTimeLeft = backlightInterval;
 
 var appBehaviors = Behavior({
   onQuit: function(app) {
@@ -90,6 +94,30 @@ var appBehaviors = Behavior({
   onLaunch: function(app) {
     trace("onLaunch: sharing\n");
     app.shared = true;
+  },
+  
+  // Bug fix: previously, if the power was turned off, there was no chance to save timeLeft.
+  // The exploit was: turn off after some time had elapsed, reboot, restart the app.
+  // Fix: on power button press, save the timeLeft value. As an added bonus, return 
+  // true to signal that the button down event has been handled (no menu popup). A long-press
+  // of the button will still turn the Kinoma off. Bug: long-press power down leads to
+  // a 0-length timeLeft file.
+  onKeyDown: function(app, key, modifiers, repeat, ticks) {
+    if (key.charCodeAt(0) == Event.FunctionKeyPower){
+      trace("power button pressed, saving timeLeft: " + timeLeft + "\n");
+      try {
+        Files.writeJSON(path, timeLeft);
+      } catch(err) {
+        trace("writeJSON error: " + err.message + "\n");
+      }
+      return true;
+    }
+  },
+  onKeyUp: function(app, key, modifiers, repeat, ticks){
+    if (key.charCodeAt(0) == Event.FunctionKeyPower){
+      trace("power button released\n");
+      return true;
+    }
   },
 });
 
@@ -116,6 +144,14 @@ var timeString = function(timeLeft) {
   return(timeStr);
 };
 
+var setBacklight = function(brightness) {
+  trace("setting backlight: " + brightness + "\n");
+  var message = new Message("xkpr://shell/settings/backlight");
+  message.requestText = JSON.stringify(brightness);
+  message.method = "PUT";
+  application.invoke(message);
+}
+
 var theBehaviors = Behavior({
   onCreate: function(column, data) {
     trace("onCreate()\n");
@@ -132,9 +168,15 @@ var theBehaviors = Behavior({
       timeLeft = defaultFullTime;
       Files.writeJSON(path, timeLeft);
     } else {
-      // TODO: catch readJSON exceptions (can happen if the filesystem is corrupted).
-      // Recreate the file if exception occurs.
-      timeLeft = Files.readJSON(path);
+      try {
+        timeLeft = Files.readJSON(path);
+      } 
+      catch(err) {
+        // Recreate the file if exception occurs.
+        trace("readJSON error: " + err.message + "; resetting timeLeft\n");
+        timeLeft = 60 * 60; // 1 hour - don't want to reset to full time!
+        Files.writeJSON(path, timeLeft);
+      }
       if (timeLeft < 0)
         timeLeft = 0;
       trace("read time: " + timeLeft + " from file " + path + "\n");
@@ -153,6 +195,7 @@ var theBehaviors = Behavior({
     updateTimeDate(timeLine, dateLine);  
 
     if (globalState) {
+      backlightTimeLeft = backlightInterval;
       if (timeLeft == 1) {
         globalState = false;
         // TODO: refactor into a call that updates the screen, turns off network access
@@ -162,19 +205,41 @@ var theBehaviors = Behavior({
       // TODO: note assumption that we are called once per second. That might not be accurate.
       if (timeLeft > 0)
         timeLeft--;
+    } else {
+      // if not enabled, dim the backlight after a little while. 
+      if (backlightTimeLeft == 1) {
+	    setBacklight(backlightDim);
+      }
+      if (backlightTimeLeft > 0) {
+        backlightTimeLeft--;
+      }
     }
   },
   
   onTouchBegan: function(column, id, x, y, ticks) {
     // Todo: allow turning internet off, even if it's past midnight but before 7.
-    if (timeLeft > 0 && currentHour >= netStartHour) {
-      globalState = !globalState;
-    }
+    if (backlightTimeLeft > 2) {
+      if (timeLeft > 0 && currentHour >= netStartHour) {
+        globalState = !globalState;
+      }
       
-    column.skin = touchSkin;
+      column.skin = touchSkin;
+    }
   },
   
   onTouchEnded: function (column, id, x, y, ticks) {
+    // If the backlight was set low, set it high and
+    // ignore this touch.
+    // Overlap by one second: assume the backlight is dim
+    // at 2 seconds and less; this might mean setting it
+    // high when it's already high, but that's better than
+    // failing to set it high when it's dime.
+    if (backlightTimeLeft <= 2) {
+	  setBacklight(backlightBright);
+      backlightTimeLeft = backlightInterval;
+      return;
+    }
+  
     var contents = column.first;
     var statusLine = contents.next.next.next;
     if (globalState) {
@@ -285,6 +350,20 @@ Handler.bind(
 );
 
 Handler.bind(
+  "/backlight",
+  Behavior({
+    onInvoke: function(handler, message) {
+      handler.invoke(new Message("xkpr://shell/settings/backlight"), Message.JSON);
+    },
+    onComplete: function(handler, message, data) {
+      trace("backlight onComplete");
+      trace("message.status: " + message.status + "\n");
+      trace("data: " + data + "\n");
+    }
+  })
+);
+    
+Handler.bind(
   "/respond",
   Behavior({
     onInvoke: function(handler, message){
@@ -359,6 +438,7 @@ Handler.bind(
 }));
 
 application.add(main);
+setBacklight(backlightBright);
 application.behavior = appBehaviors;
 application.invoke(new Message("/time"));
 
