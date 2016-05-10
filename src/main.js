@@ -1,4 +1,10 @@
-// KPR Script file
+
+var debug = false;
+var debugDate = false;
+// For time/date debugging, compute an offset from the desired date.
+// Date(year, month [0-based], day-of-month, hour [0-23], minute, second, millisecond)
+var offset = new Date(2016, 4, 17, 23, 59, 50, 0).getTime() - new Date().getTime();
+
 var printit = function(name, o) {
   var output = name + ":\n";
   for (var property in o) {
@@ -29,21 +35,59 @@ var localTimeString = function(date) {
   return localtime;
 }
 
+var addTimeOnDayTransition = function(markerDay, incrAmount) {
+  if (currentDay != prevDay && currentDay == markerDay) {
+    timeLeft += incrAmount;
+  }
+}
+
+class DebugDate extends Date {
+  constructor () {
+    var actualTime = super().getTime();
+    super.setTime(actualTime + offset);
+  }
+
+  getHours() {
+    var hours = super.getHours();
+    return hours;
+  }
+
+  getDay() {
+    var day = super.getDay();
+    return day;
+  }
+
+  getMinutes() {
+    var min = super.getMinutes();
+    return min;
+  }
+
+  getSeconds() {
+    var secs = super.getSeconds();
+    return secs;
+  }
+}
+
+var MyDate;
+if (debugDate) {
+  MyDate = DebugDate;
+} else {
+  MyDate = Date;
+}
+
 var updateTimeDate = function(timeLine, dateLine) {
-  var date = new Date();
+  var date = new MyDate();
   currentHour = date.getHours();
 
-  lastDay = currentDay;
+  prevDay = currentDay;
   currentDay = date.getDay();
 
   // "The getDay() method returns the day of the week (from 0 to 6) for the specified date."
   // "Note: Sunday is 0, Monday is 1, and so on."
   // Detect the transition from the end of one week to the beginning
   // of the next, and update timeLeft.
-  var refillDay = 1; // Monday
-  if (currentDay == refillDay && lastDay != refillDay) {
-    timeLeft = defaultFullTime;
-  }  
+  addTimeOnDayTransition(3, 4 * 60 * 60); // Weds, +4 hours
+  addTimeOnDayTransition(5, 10 * 60 * 60); // Fri, +10 hours
 
   // If you're wondering how the time gets set to daylight savings time or not...
   // it's done in the settings menu on the Kinoma. Awkward.
@@ -52,7 +96,6 @@ var updateTimeDate = function(timeLine, dateLine) {
   
   var dateStr = date.toLocaleDateString();
   dateLine.first.string = dateStr;
-  
 }
 
 // TODO: a better way to handle constants?
@@ -73,7 +116,7 @@ var backlightDim = 0.08;
 var globalState = false;
 var timeLeft = 0;
 var currentHour = 0;
-var lastDay = 0; 
+var prevDay = 0;
 var currentDay = 0;
 var netStartHour = 7;
 var path = mergeURI(Files.documentsDirectory, application.di + "." + "time.json");
@@ -209,6 +252,8 @@ var theBehaviors = Behavior({
       // if not enabled, dim the backlight after a little while. 
       if (backlightTimeLeft == 1) {
 	    setBacklight(backlightDim);
+	    // trace("trying to quit\n");
+        // Host.prototype.quit();
       }
       if (backlightTimeLeft > 0) {
         backlightTimeLeft--;
@@ -330,7 +375,6 @@ Handler.bind(
       var query = parseQuery( message.query );
       var network_mode = query.network_mode;
       var uri = "http://192.168.1.1:8080/network_control.sh" + "?network_mode=" + network_mode;
-      var debug = false;
       if (debug) {
         trace("debug: uri: " + uri + "\n");
       } else {
@@ -441,4 +485,3 @@ application.add(main);
 setBacklight(backlightBright);
 application.behavior = appBehaviors;
 application.invoke(new Message("/time"));
-
