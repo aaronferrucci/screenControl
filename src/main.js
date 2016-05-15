@@ -1,9 +1,66 @@
+var debug = true;
 
-var debug = false;
 var debugDate = false;
 // For time/date debugging, compute an offset from the desired date.
 // Date(year, month [0-based], day-of-month, hour [0-23], minute, second, millisecond)
-var offset = new Date(2016, 4, 17, 23, 59, 50, 0).getTime() - new Date().getTime();
+// Tuesday, just before midnight:
+// var offset = new Date(2016, 4, 17, 23, 59, 50, 0).getTime() - new Date().getTime();
+// Thursday, just before midnight:
+var offset = new Date(2016, 4, 19, 23, 59, 50, 0).getTime() - new Date().getTime();
+
+// TimeLeft
+// Manage the saved time-remaining.
+class TimeLeft {  
+  write() {
+    Files.writeJSON(this.path, this.time);
+  }
+
+  read() {
+    if (!Files.exists(this.path)) {
+      trace("no file '" + this.path + "'; creating it\n");
+      this.time = this.defaultFullTime;
+      this.write();
+    } else {
+      try {
+        this.time = Files.readJSON(this.path);
+      } 
+      catch(err) {
+        // Recreate the file if exception occurs.
+        trace("readJSON error: " + err.message + "; resetting timeLeft\n");
+        this.set(60 * 60); // 1 hour - don't want to reset to full time!
+        this.write();
+      }
+      if (this.time < 0)
+        this.time = 0;
+      trace("read time: " + this.time + " from file " + this.path + "\n");
+    }
+
+  	return this.get();
+  }
+
+  get() {
+    return this.time;
+  }
+
+  set(new_time) {
+    this.time = new_time;
+  }
+
+  dec() {
+    this.time--;
+  }
+  
+  inc(incrAmount) {
+    this.time += incrAmount;
+  }
+  
+  constructor () {
+    this.defaultFullTime = 14 * 60 * 60;
+    this.path = mergeURI(Files.documentsDirectory, application.di + "." + "time.json");
+
+    this.read();
+  }
+}
 
 var printit = function(name, o) {
   var output = name + ":\n";
@@ -37,7 +94,7 @@ var localTimeString = function(date) {
 
 var addTimeOnDayTransition = function(markerDay, incrAmount) {
   if (currentDay != prevDay && currentDay == markerDay) {
-    timeLeft += incrAmount;
+    timeLeft2.inc(incrAmount);
   }
 }
 
@@ -107,19 +164,19 @@ var timeDateStyle = new Style( { font: "bold 30px", color:"white" } );
 var onString = "Screen Time: OK";
 var offString = "Screen Time: Not OK";
 var tooEarlyString = offString + " (too early)";
-var defaultFullTime = 14 * 60 * 60;
 var backlightInterval = 10;
 var backlightBright = 0.6;
 var backlightDim = 0.08;
 
+var timeLeft2 = new TimeLeft();
+
 // TODO: put globals into a class.
 var globalState = false;
-var timeLeft = 0;
+// var timeLeft = 0;
 var currentHour = 0;
 var prevDay = 0;
 var currentDay = 0;
 var netStartHour = 7;
-var path = mergeURI(Files.documentsDirectory, application.di + "." + "time.json");
 
 var backlightTimeLeft = backlightInterval;
 
@@ -129,8 +186,8 @@ var appBehaviors = Behavior({
     trace("onQuit: un-sharing\n");
     app.shared = false;
 
-    trace("app onQuit(); saving timeLeft=" + timeLeft + "\n");
-    Files.writeJSON(path, timeLeft);
+    trace("app onQuit(); saving timeLeft=" + timeLeft2.get() + "\n");
+    timeLeft2.write();
     // TODO: wait until the /firewall message returns.
   },
 
@@ -147,9 +204,9 @@ var appBehaviors = Behavior({
   // a 0-length timeLeft file.
   onKeyDown: function(app, key, modifiers, repeat, ticks) {
     if (key.charCodeAt(0) == Event.FunctionKeyPower){
-      trace("power button pressed, saving timeLeft: " + timeLeft + "\n");
+      trace("power button pressed, saving timeLeft: " + timeLeft2.get() + "\n");
       try {
-        Files.writeJSON(path, timeLeft);
+		timeLeft2.write();
       } catch(err) {
         trace("writeJSON error: " + err.message + "\n");
       }
@@ -206,48 +263,30 @@ var theBehaviors = Behavior({
     var timeLine = contents.next;
     var dateLine = contents.next;
     
-    if (!Files.exists(path)) {
-      trace("no file '" + path + "'; creating it\n");
-      timeLeft = defaultFullTime;
-      Files.writeJSON(path, timeLeft);
-    } else {
-      try {
-        timeLeft = Files.readJSON(path);
-      } 
-      catch(err) {
-        // Recreate the file if exception occurs.
-        trace("readJSON error: " + err.message + "; resetting timeLeft\n");
-        timeLeft = 60 * 60; // 1 hour - don't want to reset to full time!
-        Files.writeJSON(path, timeLeft);
-      }
-      if (timeLeft < 0)
-        timeLeft = 0;
-      trace("read time: " + timeLeft + " from file " + path + "\n");
-    }
-    timeLeftLine.string = timeString(timeLeft);
+    timeLeftLine.string = timeString(timeLeft2.get());
     updateTimeDate(timeLine, dateLine);
   },
 
   onTimeUpdated: function(column) {
     var contents = column.first;
     var timeLeftLine = contents.first;
-    timeLeftLine.string = timeString(timeLeft);
+    timeLeftLine.string = timeString(timeLeft2.get());
 
     var timeLine = contents.next;
     var dateLine = contents.next.next;
-    updateTimeDate(timeLine, dateLine);  
+    updateTimeDate(timeLine, dateLine);
 
     if (globalState) {
       backlightTimeLeft = backlightInterval;
-      if (timeLeft == 1) {
+      if (timeLeft2.get() == 1) {
         globalState = false;
         // TODO: refactor into a call that updates the screen, turns off network access
         application.distribute("onTouchEnded");
       }
       
       // TODO: note assumption that we are called once per second. That might not be accurate.
-      if (timeLeft > 0)
-        timeLeft--;
+      if (timeLeft2.get() > 0)
+        timeLeft2.dec();
     } else {
       // if not enabled, dim the backlight after a little while. 
       if (backlightTimeLeft == 1) {
@@ -264,7 +303,7 @@ var theBehaviors = Behavior({
   onTouchBegan: function(column, id, x, y, ticks) {
     // Todo: allow turning internet off, even if it's past midnight but before 7.
     if (backlightTimeLeft > 2) {
-      if (timeLeft > 0 && currentHour >= netStartHour) {
+      if (timeLeft2.get() > 0 && currentHour >= netStartHour) {
         globalState = !globalState;
       }
       
@@ -294,7 +333,7 @@ var theBehaviors = Behavior({
     } else {
       statusLine.first.string = offString;
       
-      Files.writeJSON(path, timeLeft);
+      timeLeft2.write()
       application.invoke(new Message("/firewall?network_mode=2"));
       column.skin = offSkin;
     }
@@ -458,7 +497,7 @@ Handler.bind(
     
     var errString = "";
     var qualified;
-    var theTime = timeSplit(timeLeft);
+    var theTime = timeSplit(timeLeft2.get());
 
     qualified = parseTimeValue(query.hours, "hours", theTime.hours, 0, 100);
     hours = qualified.value;
@@ -475,8 +514,8 @@ Handler.bind(
     var newTime = hours * 60 * 60 + minutes * 60 + seconds;
     if (newTime < 0) 
       newTime = 0;
-    timeLeft = newTime;
-    message.responseText = errString + "Time remaining is now: " + timeString(timeLeft);
+    timeLeft2.set(newTime);
+    message.responseText = errString + "Time remaining is now: " + timeString(timeLeft2.get());
     message.status = 200;
   }
 }));
