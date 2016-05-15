@@ -48,7 +48,7 @@ var debug_print = function(msg) {
 class TimeLeft {  
   write() {
     Files.writeJSON(this.path, this.time);
-    debug_print("w time " + timeString(this.time));
+    debug_print("w time " + timeString(this.get()));
   }
 
   read() {
@@ -274,6 +274,7 @@ var setBacklight = function(brightness) {
 var theBehaviors = Behavior({
   onCreate: function(column, data) {
     trace("onCreate()\n");
+    debug_print("onCreate()");
     currentHour = 0;
     application.invoke(new Message("/firewall?network_mode=2"));
     
@@ -336,7 +337,7 @@ var theBehaviors = Behavior({
     // Overlap by one second: assume the backlight is dim
     // at 2 seconds and less; this might mean setting it
     // high when it's already high, but that's better than
-    // failing to set it high when it's dime.
+    // failing to set it high when it's dim.
     if (backlightTimeLeft <= 2) {
 	  setBacklight(backlightBright);
       backlightTimeLeft = backlightInterval;
