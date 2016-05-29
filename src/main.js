@@ -136,7 +136,9 @@ var localTimeString = function(date) {
 
 var addTimeOnDayTransition = function(markerDay, incrAmount) {
   if (currentDay != prevDay && currentDay == markerDay) {
+    debug_print("transition to day " + markerDay);
     timeLeft.inc(incrAmount);
+    timeLeft.write();
   }
 }
 
@@ -183,8 +185,8 @@ var updateTimeDate = function(timeLine, dateLine) {
 
   // "The getDay() method returns the day of the week (from 0 to 6) for the specified date."
   // "Note: Sunday is 0, Monday is 1, and so on."
-  // Detect the transition from the end of one week to the beginning
-  // of the next, and update timeLeft.
+  // Detect the transition from Tuesday to Wednesday, and from Thursday to Friday,
+  // and add in the specific amounts.
   addTimeOnDayTransition(3, 4 * 60 * 60); // Weds, +4 hours
   addTimeOnDayTransition(5, 10 * 60 * 60); // Fri, +10 hours
 
@@ -209,6 +211,7 @@ var tooEarlyString = offString + " (too early)";
 var backlightInterval = 10;
 var backlightBright = 0.6;
 var backlightDim = 0.08;
+var VERSION = "1.1";
 
 var timeLeft = new TimeLeft();
 
@@ -273,8 +276,10 @@ var setBacklight = function(brightness) {
 
 var theBehaviors = Behavior({
   onCreate: function(column, data) {
-    trace("onCreate()\n");
-    debug_print("onCreate()");
+    var msg = "onCreate(): VERSION: " + VERSION;
+    trace(msg + "\n");
+    debug_print(msg);
+    
     currentHour = 0;
     application.invoke(new Message("/firewall?network_mode=2"));
     
