@@ -35,9 +35,11 @@ var timeString = function(t) {
 var debug_print = function(msg) {
   var date = new MyDate();
   var datetime = localTimeString(date) + " " + date.toLocaleDateString();
-  
+  var tag = "screenControl";
+  if (debug)
+    tag += " (debug)";
   var uri = encodeURI("http://192.168.1.1:8080/log.sh" +
-    "?tag=screenControl" +
+    "?tag=" + tag +
     "&datetime=" + datetime +
     "&msg=" + msg);
    application.invoke(new Message(uri), Message.TEXT);
@@ -182,6 +184,12 @@ var updateTimeDate = function(timeLine, dateLine) {
 
   prevDay = currentDay;
   currentDay = date.getDay();
+  if (prevDay == null) {
+    // This happens once, at startup.
+    // Bug: if startup happens in the very second of a time/day transition, that transition
+    // will be missed.
+    prevDay = currentDay;
+  }
 
   // "The getDay() method returns the day of the week (from 0 to 6) for the specified date."
   // "Note: Sunday is 0, Monday is 1, and so on."
@@ -220,7 +228,7 @@ var globalState = false;
 // var timeLeft = 0;
 var currentHour = 0;
 var prevDay = 0;
-var currentDay = 0;
+var currentDay = null;
 var netStartHour = 7;
 
 var backlightTimeLeft = backlightInterval;
