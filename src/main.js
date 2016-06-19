@@ -219,7 +219,7 @@ var tooEarlyString = offString + " (too early)";
 var backlightInterval = 10;
 var backlightBright = 0.6;
 var backlightDim = 0.08;
-var VERSION = "1.1";
+var VERSION = "1.2";
 
 var timeLeft = new TimeLeft();
 
